@@ -1,0 +1,8 @@
+== A simple stock demo
+
+This is a project created within a couple of hours to demonstrate how a simple REST
+based service can be implemented that manages an imaginary stock of articles.
+
+The outline of the service was specified as follows:
+
+include::src/test/scala/de/wayofquality/stockdemo/StockManagerSpec.scala[lines=9..20]
