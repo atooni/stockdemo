@@ -1,4 +1,4 @@
-[![Build Status](https://www.travis-ci.org/atooni/stockdemo.svg?branch=master)](https://www.travis-ci.org/atooni/stockdemo)
+image:https://www.travis-ci.org/atooni/stockdemo.svg?branch=master["Build Status", link="https://www.travis-ci.org/atooni/stockdemo"]
 
 == A simple stock demo
 
