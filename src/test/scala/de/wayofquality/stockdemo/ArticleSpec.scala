@@ -1,7 +1,7 @@
 package de.wayofquality.stockdemo
 
-import de.wayofquality.stockdemo.StockManager.Reservation
 import org.scalatest.{FreeSpec, Matchers}
+
 import scala.concurrent.duration._
 
 class ArticleSpec extends FreeSpec with Matchers {

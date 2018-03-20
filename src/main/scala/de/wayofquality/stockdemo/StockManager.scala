@@ -2,7 +2,6 @@ package de.wayofquality.stockdemo
 
 import akka.actor.{Actor, ActorLogging, Props}
 
-import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
 // The companion object for the StockManager defines the protocol
@@ -26,21 +25,6 @@ object StockManager {
     id: Long,
     // The amount sold
     soldQuantity: Long
-  )
-
-  // Reserving a product with a given Quantity and a certain period
-  case class Reservation(
-    // The id of the product te be reserved
-    id : Long,
-    // The amount to be reserved
-    reservedQuantity: Long,
-    // The duration for the reservation
-    reservedFor: FiniteDuration
-  )
-
-  // Signalling the timeout of a Reservation
-  case class CancelReservation(
-    reservation: Reservation
   )
 
   // Asking for all products and the corresponding product list
@@ -81,6 +65,9 @@ class StockManager extends Actor with ActorLogging {
   // it wouldn't reside in memory
   private[this] var currentStock : Map[Long, Article] = Map.empty
 
+  // This is the list of current reservations, also keyed by the article id
+  private[this] var currentReservations : Map[Long, List[Reservation]] = Map.empty
+
   // convenience method to retrieve an article with it's id. When the implementation
   // of the stock store changes, we just need to change this method
   private[this] def article(id: Long) : Option[Article] = currentStock.get(id)
@@ -96,7 +83,16 @@ class StockManager extends Actor with ActorLogging {
     }
   }
 
-  private[this] def saveArticle(a: Article): Unit = currentStock = currentStock.filterKeys(_ != a.id) + (a.id -> a)
+  private[this] def saveArticle(a: Article): Unit =
+    currentStock = currentStock.filterKeys(_ != a.id) + (a.id -> a)
+
+  private[this] def saveReservation(reservation: Reservation) : Unit = {
+    val articleReservations : List[Reservation] =
+      reservation :: currentReservations.getOrElse(reservation.articleId, List.empty)
+
+    currentReservations =
+      currentReservations.filterKeys(_ != reservation.articleId) + (reservation.articleId -> articleReservations)
+  }
 
   override def receive: Receive = {
     // Creating an article that does not yet exist in the stock
@@ -138,17 +134,24 @@ class StockManager extends Actor with ActorLogging {
           sender() ! ARTICLE_DOES_NOT_EXIST
       }
 
-    case Reservation(id, quantity, reservedFor) =>
-      article(id) match {
-        case Some(a) =>
-        case None =>
-          log.debug("Article with id [$id] not found")
+    case r : Reservation =>
+      available(r.articleId) match {
+        case Success((a,q)) =>
+          if (q < r.reservedQuantity) {
+
+          } else {
+            log.debug(s"Reserving [${r.reservedQuantity}] of [$a]")
+            saveReservation(r)
+            sender() ! StockManagerResult(0)
+          }
+        case Failure(_) =>
+          log.debug(s"Article with id [${r.articleId}] not found")
           sender() ! ARTICLE_DOES_NOT_EXIST
       }
 
     // List the current stock
     case ListArticles =>
       log.debug(s"Return [${currentStock.size}] articles in stock.")
-      sender() ! Stock(currentStock.values.toList.map(a => ArticleState(a, List.empty)))
+      sender() ! Stock(currentStock.values.toList.map(a => ArticleState(a, currentReservations.getOrElse(a.id, List.empty))))
   }
 }

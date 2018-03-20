@@ -41,11 +41,17 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
   def checkArticles(
     articleCount : Long,
     contained : List[Article]
-  ) : Unit = fishForMessage(1.second){
-    case Stock(l) =>
-      log.info(s"Articles: $l")
-      (l.length == articleCount) && contained.forall { a => l.map(_.article).contains(a)}
-    case _ => false
+  ) : List[ArticleState] = {
+    val stock = expectMsgType[Stock]
+    val l = stock.products.map(_.article)
+
+    log.info(s"Product State [$stock] [$l]")
+    assert(
+      l.length == articleCount &&
+      contained.forall { a => l.contains(a) }
+    )
+
+    stock.products
   }
 
   "The StockManager should" - {
@@ -119,6 +125,8 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
         testActor ! ListArticles
         checkArticles(1, List(product.copy(onStock = 5)))
+
+
       }
     }
 
@@ -158,7 +166,10 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
         expectMsg(StockManagerResult(0))
 
         testActor ! ListArticles
-        checkArticles(1, List(product.copy(onStock = 5)))
+        val stock = checkArticles(1, List(product.copy(onStock = 10)))
+
+        assert(stock.head.available == 5)
+
       }
     }
 

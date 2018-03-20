@@ -2,8 +2,6 @@ package de.wayofquality.stockdemo
 
 import java.util.concurrent.atomic.AtomicLong
 
-import de.wayofquality.stockdemo.StockManager.Reservation
-
 // Companion class for Products.
 // Maintains a simple counter for new product id's and provides
 // a constructor to validate product quantity.
