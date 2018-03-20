@@ -109,7 +109,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
          val product = Article("Super Computer", 10)
 
         testActor ! Refill(product.id, 10)
-        expectMsg(ARTICLE_DOES_NOT_EXIST)
+        expectMsg(ARTICLE_NOT_FOUND)
       }
     }
 
@@ -135,7 +135,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
         val product = Article("Super Computer", 10)
 
         testActor ! Sell(product.id, 10)
-        expectMsg(ARTICLE_DOES_NOT_EXIST)
+        expectMsg(ARTICLE_NOT_FOUND)
       }
     }
 
@@ -167,35 +167,95 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
         testActor ! ListArticles
         val stock = checkArticles(1, List(product.copy(onStock = 10)))
-
         assert(stock.head.available == 5)
 
       }
     }
 
     "Deny to reserve a non-existing product" in {
-      pending
-    }
-
-    "Deny to reserve a product if not sufficiently available" in {
       withStockManager{ testActor =>
         val product = Article("Super Computer", 10)
 
         testActor ! Reservation(product.id, 10, 10.minutes)
-        expectMsg(ARTICLE_DOES_NOT_EXIST)
+        expectMsg(ARTICLE_NOT_FOUND)
+      }
+    }
+
+    "Deny to reserve a product if not sufficiently available" in {
+      withStockManager { testActor =>
+        val product = Article("Super Computer", 10)
+
+        testActor ! CreateArticle(product)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! Reservation(product.id, 5, 10.minutes)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! Reservation(product.id, 10, 10.minutes)
+        expectMsg(ARTICLE_UNSUFFICIENT_STOCK.copy(article = Some(product)))
+
+        testActor ! ListArticles
+        val stock = checkArticles(1, List(product.copy(onStock = 10)))
+        assert(stock.head.available == 5)
       }
     }
 
     "Allow to cancel a reservation and make the quantity reserved available again" in {
-      pending
-    }
+      withStockManager { testActor =>
+        val product = Article("Super Computer", 10)
+        val reservation = Reservation(product.id, 5, 10.minutes)
 
-    "Allow to cancel a given reservation" in {
-      pending
+        testActor ! CreateArticle(product)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! reservation
+        expectMsg(StockManagerResult(0))
+
+        testActor ! CancelReservation(reservation.id)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! ListArticles
+        val stock = checkArticles(1, List(product.copy(onStock = 10)))
+        assert(stock.head.available == 10)
+      }
     }
 
     "Take into account the current reservations when checking the current stock" in {
-      pending
+      withStockManager { testActor =>
+        // Initially we have 10
+        val product = Article("Super Computer", 10)
+        val res1 = Reservation(product.id, 3, 10.minutes)
+        val res2 = Reservation(product.id, 4, 10.minutes)
+
+        testActor ! CreateArticle(product)
+        expectMsg(StockManagerResult(0))
+
+        // Reserve 3
+        testActor ! res1
+        expectMsg(StockManagerResult(0))
+
+        // Reserve another 4
+        testActor ! res2
+        expectMsg(StockManagerResult(0))
+
+        // try to sell 5 - not working (only 3 free)
+        testActor ! Sell(product.id, 5)
+        expectMsg(ARTICLE_UNSUFFICIENT_STOCK.copy(article = Some(product)))
+
+        // cancel one reservation
+        testActor ! CancelReservation(res1.id)
+        expectMsg(StockManagerResult(0))
+
+        // now sell 5
+        testActor ! Sell(product.id, 5)
+        expectMsg(StockManagerResult(0))
+
+        // Now we should have 1 freely available and 5 on stock
+
+        testActor ! ListArticles
+        val stock = checkArticles(1, List(product.copy(onStock = 5)))
+        assert(stock.head.available == 1)
+      }
     }
   }
 

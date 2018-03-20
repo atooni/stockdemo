@@ -40,8 +40,9 @@ object StockManager {
   )
 
   val ARTICLE_ALREADY_EXISTS = StockManagerResult(1, None, Option("Article already exists"))
-  val ARTICLE_DOES_NOT_EXIST = StockManagerResult(2, None, Option("Article does not exist"))
+  val ARTICLE_NOT_FOUND = StockManagerResult(2, None, Option("Article does not exist"))
   val ARTICLE_UNSUFFICIENT_STOCK = StockManagerResult(2, None, Option("Unsufficient stock"))
+  val RESERVATION_NOT_FOUND  = StockManagerResult(3, None, Option("Reservation not found"))
 
   // Return the props object to create the main Actor
   def props() : Props = Props(new StockManager)
@@ -72,20 +73,25 @@ class StockManager extends Actor with ActorLogging {
   // of the stock store changes, we just need to change this method
   private[this] def article(id: Long) : Option[Article] = currentStock.get(id)
 
+  // convenience method to retrieve the reservations for an article
+  private[this] def reservations(id: Long) : List[Reservation] = currentReservations.getOrElse(id, List.empty)
+
   // convenience method to calculate the freely available quantity of a given
   // product taken the stock and reservations into account
   private[this] def available(id: Long) : Try[(Article, Long)] = Try {
     article(id) match {
       case Some(a) =>
-        (a, a.onStock)
+        (a, a.onStock - reservations(a.id).map(_.reservedQuantity).sum)
       case None =>
         throw new Exception("Article does not exist")
     }
   }
 
+  // convenience method to save an article
   private[this] def saveArticle(a: Article): Unit =
     currentStock = currentStock.filterKeys(_ != a.id) + (a.id -> a)
 
+  // convenience method to save a reservation
   private[this] def saveReservation(reservation: Reservation) : Unit = {
     val articleReservations : List[Reservation] =
       reservation :: currentReservations.getOrElse(reservation.articleId, List.empty)
@@ -94,8 +100,18 @@ class StockManager extends Actor with ActorLogging {
       currentReservations.filterKeys(_ != reservation.articleId) + (reservation.articleId -> articleReservations)
   }
 
+  // convenience method to find a reservation by it's id
+  private[this] def reservationById(id: Long) : Option[Reservation] =
+    currentReservations.values.flatten.find(_.id == id)
+
+  // convenience method to remove a reservation
+  private[this] def removeReservation(r: Reservation) : Unit = {
+    val newReservations = reservations(r.articleId).filter(_.id != r.id)
+    currentReservations = currentReservations.filterKeys(_ != r.articleId) + (r.articleId -> newReservations)
+  }
+
+  // handle all protocol messages managing the stock
   override def receive: Receive = {
-    // Creating an article that does not yet exist in the stock
     case CreateArticle(a) =>
       article(a.id) match {
         case Some(_) =>
@@ -115,7 +131,7 @@ class StockManager extends Actor with ActorLogging {
           sender() ! StockManagerResult(0)
         case None =>
           log.debug("Article with id [$id] not found")
-          sender() ! ARTICLE_DOES_NOT_EXIST
+          sender() ! ARTICLE_NOT_FOUND
       }
 
     case Sell(id, quantity) =>
@@ -131,14 +147,15 @@ class StockManager extends Actor with ActorLogging {
           }
         case Failure(_) =>
           log.debug(s"Article with id [$id] not found")
-          sender() ! ARTICLE_DOES_NOT_EXIST
+          sender() ! ARTICLE_NOT_FOUND
       }
 
     case r : Reservation =>
       available(r.articleId) match {
         case Success((a,q)) =>
           if (q < r.reservedQuantity) {
-
+            log.debug(s"Insufficient stock for [$a], requested: [${r.reservedQuantity}]")
+            sender() ! ARTICLE_UNSUFFICIENT_STOCK.copy(article = Some(a))
           } else {
             log.debug(s"Reserving [${r.reservedQuantity}] of [$a]")
             saveReservation(r)
@@ -146,7 +163,18 @@ class StockManager extends Actor with ActorLogging {
           }
         case Failure(_) =>
           log.debug(s"Article with id [${r.articleId}] not found")
-          sender() ! ARTICLE_DOES_NOT_EXIST
+          sender() ! ARTICLE_NOT_FOUND
+      }
+
+    case CancelReservation(id) =>
+      reservationById(id) match {
+        case Some(r) =>
+          log.debug(s"Removing reservation [$r]")
+          removeReservation(r)
+          sender() ! StockManagerResult(0)
+        case None =>
+          log.debug(s"Reservation [$id] not found.")
+          sender() ! RESERVATION_NOT_FOUND
       }
 
     // List the current stock
