@@ -20,6 +20,8 @@ object StockManager {
     reason: Option[String] = None
   )
 
+  val ARTICLE_ALREADY_EXISTS = StockManagerResult(1, Option("Product already exists"))
+
   // Return the props object to create the main Actor
   def props() : Props = Props(new StockManager)
 }
@@ -37,18 +39,25 @@ class StockManager extends Actor with ActorLogging {
 
   import StockManager._
 
-  private[this] var currentStock : List[Article] = List.empty
+  private[this] var currentStock : Map[Long, Article] = Map.empty
 
   override def receive: Receive = {
     // Creating an article that does not yet exist in the stock
     case CreateArticle(a) =>
-      log.debug(s"Adding article [$a] to current stock")
-      currentStock = a :: currentStock
-      sender() ! StockManagerResult(0)
+      currentStock.get(a.id) match {
+        case Some(_) =>
+          log.debug(s"Article with id [${a.id}] already exists.")
+          sender() ! ARTICLE_ALREADY_EXISTS
+        case None =>
+          log.debug(s"Adding article [$a] to current stock")
+          currentStock = currentStock + (a.id -> a)
+          sender() ! StockManagerResult(0)
+      }
+
 
     // List the current stock
     case ListArticles =>
-      log.debug(s"Return [${currentStock.length}] articles in stock.")
-      sender() ! Stock(currentStock)
+      log.debug(s"Return [${currentStock.size}] articles in stock.")
+      sender() ! Stock(currentStock.values.toList)
   }
 }

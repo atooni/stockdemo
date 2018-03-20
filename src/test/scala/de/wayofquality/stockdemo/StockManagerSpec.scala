@@ -1,8 +1,9 @@
 package de.wayofquality.stockdemo
 
-import akka.actor.ActorSystem
-import akka.testkit.{ImplicitSender, TestKit}
+import akka.actor.{ActorRef, ActorSystem}
+import akka.testkit.{ImplicitSender, TestActor, TestKit}
 import org.scalatest.{BeforeAndAfterAll, FreeSpecLike}
+
 import scala.concurrent.duration._
 
 //The Task
@@ -27,26 +28,54 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
   private[this] val log = org.log4s.getLogger
 
+  def withStockManager(f: ActorRef => Unit) = {
+
+    val testActor = system.actorOf(StockManager.props())
+    f(testActor)
+    system.stop(testActor)
+  }
+
   "The StockManager should" - {
 
-    "Allow to define a product along with an available Quantity" in {
+    "Allow to create a product along with an available Quantity" in {
 
-      val product = Article("Super Computer", 10)
-      val testActor = system.actorOf(props())
+      withStockManager{testActor =>
+        val product = Article("Super Computer", 10)
 
-      testActor ! CreateArticle(product)
-      expectMsg(StockManagerResult(0, None))
+        testActor ! CreateArticle(product)
+        expectMsg(StockManagerResult(0, None))
 
-      testActor ! ListArticles
+        testActor ! ListArticles
 
-      fishForMessage(1.second){
-        case Stock(l) =>
-          log.info(s"Articles: $l")
-          (l.length == 1 && l.head.name === "Super Computer")
-        case _ => false
+        fishForMessage(1.second){
+          case Stock(l) =>
+            log.info(s"Articles: $l")
+            l.length == 1 && l.head.name === "Super Computer" && l.head.id == product.id
+          case _ => false
+        }
       }
+    }
 
-      system.stop(testActor)
+    "Deny to create a product with an id that already exists" in {
+
+      withStockManager { testActor =>
+        val product = Article("Super Computer", 10)
+
+        testActor ! CreateArticle(product)
+        expectMsg(StockManagerResult(0, None))
+
+        testActor ! CreateArticle(product)
+        expectMsg(ARTICLE_ALREADY_EXISTS)
+
+        testActor ! ListArticles
+
+        fishForMessage(1.second){
+          case Stock(l) =>
+            log.info(s"Articles: $l")
+            l.length == 1 && l.head.name === "Super Computer" && l.head.id == product.id
+          case _ => false
+        }
+      }
     }
 
     "Allow to increase the available quantity of an existing product" in {
