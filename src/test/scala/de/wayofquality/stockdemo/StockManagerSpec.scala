@@ -1,6 +1,8 @@
 package de.wayofquality.stockdemo
 
-import org.scalatest.FreeSpec
+import akka.actor.ActorSystem
+import akka.testkit.{ImplicitSender, TestKit}
+import org.scalatest.{BeforeAndAfterAll, FreeSpecLike}
 
 //The Task
 //************
@@ -15,12 +17,22 @@ import org.scalatest.FreeSpec
 // Use a build system of your choice (e.g. Maven, SBT, Gradle).
 //************
 
-class StockManagerSpec extends FreeSpec {
+class StockManagerSpec extends TestKit(ActorSystem("stock"))
+  with FreeSpecLike
+  with BeforeAndAfterAll
+  with ImplicitSender {
+
+  import StockManager._
 
   "The StockManager should" - {
 
     "Allow to define a product along with an available Quantity" in {
-      pending
+
+      val product = Product("Super Computer", 10)
+      val testActor = system.actorOf(props())
+
+      testActor ! CreateProduct(product)
+      expectMsg(StockManagerResult(0, None))
     }
 
     "Allow to increase the available quantity of an existing product" in {
@@ -52,4 +64,7 @@ class StockManagerSpec extends FreeSpec {
     }
   }
 
+  override protected def afterAll(): Unit = {
+    TestKit.shutdownActorSystem(system)
+  }
 }

@@ -16,6 +16,7 @@ object Dependencies {
     "org.log4s" %% "log4s" % "1.6.0",
 
     akkaOrg %% "akka-actor" % akkaVersion,
+    akkaOrg %% "akka-slf4j" % akkaVersion,
     akkaOrg %% "akka-http" % akkaHttpVersion,
 
 
