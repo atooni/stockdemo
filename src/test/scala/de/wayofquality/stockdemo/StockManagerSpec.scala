@@ -65,7 +65,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
         expectMsg(StockManagerResult(0, None))
 
         testActor ! CreateArticle(product)
-        expectMsg(ARTICLE_ALREADY_EXISTS)
+        expectMsg(ARTICLE_ALREADY_EXISTS.copy(article = Some(product)))
 
         testActor ! ListArticles
 
@@ -109,11 +109,55 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
     }
 
     "Allow to buy an existing product if sufficiently available" in {
-      pending
+      withStockManager { testActor =>
+        val product = Article("Super Computer", 10)
+
+        testActor ! CreateArticle(product)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! Sell(product.id, 5)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! ListArticles
+
+        fishForMessage(1.second){
+          case Stock(l) =>
+            log.info(s"Articles: $l")
+            l.length == 1 && l.head.name === "Super Computer" && l.head.id == product.id && l.head.onStock === 5
+          case _ => false
+        }
+      }
+    }
+
+    "Deny to buy a non-existing product" in {
+      withStockManager{ testActor =>
+        val product = Article("Super Computer", 10)
+
+        testActor ! Sell(product.id, 10)
+        expectMsg(ARTICLE_DOES_NOT_EXIST)
+      }
     }
 
     "Deny to buy an existing product if not sufficiently available" in {
-      pending
+      withStockManager { testActor =>
+        val product = Article("Super Computer", 10)
+
+        testActor ! CreateArticle(product)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! Sell(product.id, 20)
+        expectMsg(ARTICLE_UNSUFFICIENT_STOCK.copy(article = Some(product)))
+
+        testActor ! ListArticles
+
+        fishForMessage(1.second){
+          case Stock(l) =>
+            log.info(s"Articles: $l")
+            l.length == 1 && l.head.name === "Super Computer" && l.head.id == product.id && l.head.onStock === 10
+          case _ => false
+        }
+      }
+
     }
 
     "Allow to reserve a product if sufficiently available" in {
