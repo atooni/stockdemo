@@ -2,7 +2,7 @@ package de.wayofquality.stockdemo
 
 import akka.actor.ActorRef
 import akka.http.scaladsl.marshalling.{Marshal, ToResponseMarshallable}
-import akka.http.scaladsl.model.{HttpResponse, StatusCodes}
+import akka.http.scaladsl.model.{HttpMethod, HttpMethods, HttpResponse, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import akka.pattern.ask
@@ -63,9 +63,25 @@ class StockManagerService(stockManager: ActorRef) extends StockManagerJsonSuppor
       entity(as[Quantity]) { q =>
         executeStockManager(Refill(articleId, q.quantity))
       }
+    } ~
+    path("sell") {
+      entity(as[Quantity]) { q =>
+        executeStockManager(Sell(articleId, q.quantity))
+      }
+    } ~
+    path("reserve") {
+      entity(as[Reservation]) { r =>
+        executeStockManager(r)
+      }
     }
   }
 
-  val route = articleRoute
+  private val reservationsRoute : Route = pathPrefix("reservations" / LongNumber) { resId =>
+    method(HttpMethods.DELETE) {
+      executeStockManager(CancelReservation(resId))
+    }
+  }
+
+  val route = articleRoute ~ reservationsRoute
 
 }

@@ -7,7 +7,7 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import de.wayofquality.stockdemo.StockManager._
 import org.scalatest.{FreeSpec, Matchers}
 import de.wayofquality.stockdemo.StockManagerJsonSupport._
-
+import scala.concurrent.duration._
 import scala.util.Try
 
 class RestServiceSpec extends FreeSpec
@@ -91,39 +91,134 @@ class RestServiceSpec extends FreeSpec
     }
 
     "Deny to increase the available quantity of a non-existing product" in {
-      pending
+      withRestService { route =>
+        Post("/articles", product) ~> route ~> check {
+          assert(responseAs[StockManagerResult] === StockManagerResult(0))
+        }
+
+        Post(s"/articles/2/refill", Quantity(5)) ~> route ~> check {
+          assert(status == StatusCodes.BadRequest)
+          assert(responseAs[StockManager.StockManagerResult] === ARTICLE_NOT_FOUND)
+        }
+
+        checkArticles(1, List(product), getProducts(route).get)
+      }
     }
 
     "Allow to sell an existing product if sufficiently available" in {
-      pending
+      withRestService { route =>
+        Post("/articles", product) ~> route ~> check {
+          assert(responseAs[StockManagerResult] === StockManagerResult(0))
+        }
+
+        Post(s"/articles/${product.id}/sell", Quantity(5)) ~> route ~> check {
+          assert(responseAs[StockManager.StockManagerResult] === StockManagerResult(0))
+        }
+
+        checkArticles(1, List(product.copy(onStock = 95)), getProducts(route).get)
+      }
     }
 
     "Deny to sell a non-existing product" in {
-      pending
+      withRestService { route =>
+        Post("/articles", product) ~> route ~> check {
+          assert(responseAs[StockManagerResult] === StockManagerResult(0))
+        }
+
+        Post(s"/articles/2/sell", Quantity(5)) ~> route ~> check {
+          assert(status == StatusCodes.BadRequest)
+          assert(responseAs[StockManager.StockManagerResult] === ARTICLE_NOT_FOUND)
+        }
+
+        checkArticles(1, List(product), getProducts(route).get)
+      }
     }
 
     "Deny to buy an existing product if not sufficiently available" in {
-      pending
+      withRestService { route =>
+        Post("/articles", product) ~> route ~> check {
+          assert(responseAs[StockManagerResult] === StockManagerResult(0))
+        }
+
+        Post(s"/articles/${product.id}/sell", Quantity(200)) ~> route ~> check {
+          assert(status == StatusCodes.BadRequest)
+          assert(responseAs[StockManager.StockManagerResult] === ARTICLE_UNSUFFICIENT_STOCK.copy(article = Some(product)))
+        }
+
+        checkArticles(1, List(product), getProducts(route).get)
+      }
     }
 
     "Allow to reserve a product if sufficiently available" in {
-      pending
+      withRestService { route =>
+        Post("/articles", product) ~> route ~> check {
+          assert(responseAs[StockManagerResult] === StockManagerResult(0))
+        }
+
+        Post(s"/articles/${product.id}/reserve", Reservation(1, product.id, 5, 10.minutes.toMillis)) ~> route ~> check {
+          assert(responseAs[StockManager.StockManagerResult] === StockManagerResult(0))
+        }
+
+        val states = checkArticles(1, List(product), getProducts(route).get)
+        assert(states.head.available == 95)
+      }
     }
 
     "Deny to reserve a non-existing product" in {
-      pending
+      withRestService { route =>
+        Post("/articles", product) ~> route ~> check {
+          assert(responseAs[StockManagerResult] === StockManagerResult(0))
+        }
+
+        Post(s"/articles/2/reserve", Reservation(1, 2, 5, 10.minutes.toMillis)) ~> route ~> check {
+          assert(status == StatusCodes.BadRequest)
+          assert(responseAs[StockManager.StockManagerResult] === ARTICLE_NOT_FOUND)
+        }
+
+        checkArticles(1, List(product), getProducts(route).get)
+      }
     }
 
     "Deny to reserve a product if not sufficiently available" in {
-      pending
+      withRestService { route =>
+        Post("/articles", product) ~> route ~> check {
+          assert(responseAs[StockManagerResult] === StockManagerResult(0))
+        }
+
+        Post(s"/articles/${product.id}/reserve", Reservation(1, product.id, 200, 10.minutes.toMillis)) ~> route ~> check {
+          assert(status == StatusCodes.BadRequest)
+          assert(responseAs[StockManager.StockManagerResult] === ARTICLE_UNSUFFICIENT_STOCK.copy(article = Some(product)))
+        }
+
+        checkArticles(1, List(product), getProducts(route).get)
+      }
+
     }
 
     "Allow to cancel a reservation and make the quantity reserved available again" in {
-      pending
-    }
+      withRestService { route =>
+        Post("/articles", product) ~> route ~> check {
+          assert(responseAs[StockManagerResult] === StockManagerResult(0))
+        }
 
-    "Take into account the current reservations when checking the current stock" in {
-      pending
+        Post(s"/articles/${product.id}/reserve", Reservation(1, product.id, 10, 10.minutes.toMillis)) ~> route ~> check {
+          assert(responseAs[StockManager.StockManagerResult] === StockManagerResult(0))
+        }
+
+        Post(s"/articles/${product.id}/reserve", Reservation(2, product.id, 10, 10.minutes.toMillis)) ~> route ~> check {
+          assert(responseAs[StockManager.StockManagerResult] === StockManagerResult(0))
+        }
+
+        val states = checkArticles(1, List(product), getProducts(route).get)
+        assert(states.head.available == 80)
+
+        Delete(s"/reservations/${product.id}") ~> route ~> check {
+          assert(responseAs[StockManager.StockManagerResult] === StockManagerResult(0))
+        }
+
+        val states2 = checkArticles(1, List(product), getProducts(route).get)
+        assert(states2.head.available == 90)
+      }
     }
   }
 }
