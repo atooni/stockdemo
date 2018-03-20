@@ -1,3 +1,5 @@
+[![Build Status](https://www.travis-ci.org/atooni/stockdemo.svg?branch=master)](https://www.travis-ci.org/atooni/stockdemo)
+
 == A simple stock demo
 
 This is a project created within a couple of hours to demonstrate how a simple REST
