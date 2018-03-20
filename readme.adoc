@@ -62,7 +62,7 @@ the file `src/main/resources/application.conf` without modifying the code.
 
 * The project is missing a UI, a standard UI for testing REST services can be used, for example https://www.getpostman.com/[Postman]
 
-
+---
 Have fun
 
 Andreas
