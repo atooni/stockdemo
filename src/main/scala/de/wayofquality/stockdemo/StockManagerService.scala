@@ -1,8 +1,8 @@
 package de.wayofquality.stockdemo
 
 import akka.actor.ActorRef
-import akka.http.scaladsl.marshalling.{Marshal, ToResponseMarshallable}
-import akka.http.scaladsl.model.{HttpMethod, HttpMethods, HttpResponse, StatusCodes}
+import akka.http.scaladsl.marshalling.Marshal
+import akka.http.scaladsl.model.{HttpMethods, HttpResponse, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import akka.pattern.ask
@@ -16,7 +16,7 @@ import scala.util.{Failure, Success, Try}
 class StockManagerService(stockManager: ActorRef) extends StockManagerJsonSupport {
 
   import scala.concurrent.ExecutionContext.Implicits.global
-  implicit val askTimeout = Timeout(1.second)
+  private[this] implicit val askTimeout : Timeout = Timeout(1.second)
 
   // A convenience method to turn the response from the StockManager into a
   // HTTP Response. A Failure will result in a "Internal Server error",
@@ -44,7 +44,7 @@ class StockManagerService(stockManager: ActorRef) extends StockManagerJsonSuppor
   }
 
   def executeStockManager(msg: Any) : Route =
-    onComplete((stockManager ? msg)) { result =>
+    onComplete(stockManager ? msg) { result =>
       complete(response(result))
     }
 
@@ -85,6 +85,6 @@ class StockManagerService(stockManager: ActorRef) extends StockManagerJsonSuppor
     }
   }
 
-  val route = articleRoute ~ reservationsRoute
+  val route : Route = articleRoute ~ reservationsRoute
 
 }
