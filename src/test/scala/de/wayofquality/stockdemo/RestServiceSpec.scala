@@ -1,10 +1,10 @@
 package de.wayofquality.stockdemo
 
-
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import de.wayofquality.stockdemo.StockManager._
+import de.wayofquality.stockdemo.StockManagerJsonSupport._
 import org.scalatest.{FreeSpec, Matchers}
 import scala.concurrent.duration._
 import scala.util.Try
