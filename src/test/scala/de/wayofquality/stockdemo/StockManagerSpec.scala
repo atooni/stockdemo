@@ -1,7 +1,7 @@
 package de.wayofquality.stockdemo
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.testkit.{ImplicitSender, TestActor, TestKit}
+import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, FreeSpecLike}
 
 import scala.concurrent.duration._
@@ -28,11 +28,24 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
   private[this] val log = org.log4s.getLogger
 
-  def withStockManager(f: ActorRef => Unit) = {
+  // convenience method to run a test against a fresh StockManager and stopping it afterwards
+  def withStockManager(f: ActorRef => Unit) : Unit = {
 
     val testActor = system.actorOf(StockManager.props())
     f(testActor)
     system.stop(testActor)
+  }
+
+  // convenenience method to check the result of the current stock state
+  // not taking reservations into account
+  def checkArticles(
+    articleCount : Long,
+    contained : List[Article]
+  ) : Unit = fishForMessage(1.second){
+    case Stock(l) =>
+      log.info(s"Articles: $l")
+      (l.length == articleCount) && contained.forall { a => l.map(_.article).contains(a)}
+    case _ => false
   }
 
   "The StockManager should" - {
@@ -40,19 +53,17 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
     "Allow to create a product along with an available Quantity" in {
 
       withStockManager{testActor =>
-        val product = Article("Super Computer", 10)
+        val a1 = Article("Super Computer", 10)
+        val a2 = Article("Another cool product", 200)
 
-        testActor ! CreateArticle(product)
+        testActor ! CreateArticle(a1)
+        expectMsg(StockManagerResult(0, None))
+
+        testActor ! CreateArticle(a2)
         expectMsg(StockManagerResult(0, None))
 
         testActor ! ListArticles
-
-        fishForMessage(1.second){
-          case Stock(l) =>
-            log.info(s"Articles: $l")
-            l.length == 1 && l.head.name === "Super Computer" && l.head.id == product.id
-          case _ => false
-        }
+        checkArticles(2, List(a1, a2))
       }
     }
 
@@ -68,13 +79,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
         expectMsg(ARTICLE_ALREADY_EXISTS.copy(article = Some(product)))
 
         testActor ! ListArticles
-
-        fishForMessage(1.second){
-          case Stock(l) =>
-            log.info(s"Articles: $l")
-            l.length == 1 && l.head.name === "Super Computer" && l.head.id == product.id
-          case _ => false
-        }
+        checkArticles(1, List(product))
       }
     }
 
@@ -89,13 +94,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
         expectMsg(StockManagerResult(0))
 
         testActor ! ListArticles
-
-        fishForMessage(1.second){
-          case Stock(l) =>
-            log.info(s"Articles: $l")
-            l.length == 1 && l.head.name === "Super Computer" && l.head.id == product.id && l.head.onStock === 20
-          case _ => false
-        }
+        checkArticles(1, List(product.copy(onStock = 20)))
       }
     }
 
@@ -119,13 +118,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
         expectMsg(StockManagerResult(0))
 
         testActor ! ListArticles
-
-        fishForMessage(1.second){
-          case Stock(l) =>
-            log.info(s"Articles: $l")
-            l.length == 1 && l.head.name === "Super Computer" && l.head.id == product.id && l.head.onStock === 5
-          case _ => false
-        }
+        checkArticles(1, List(product.copy(onStock = 5)))
       }
     }
 
@@ -149,19 +142,24 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
         expectMsg(ARTICLE_UNSUFFICIENT_STOCK.copy(article = Some(product)))
 
         testActor ! ListArticles
-
-        fishForMessage(1.second){
-          case Stock(l) =>
-            log.info(s"Articles: $l")
-            l.length == 1 && l.head.name === "Super Computer" && l.head.id == product.id && l.head.onStock === 10
-          case _ => false
-        }
+        checkArticles(1, List(product))
       }
 
     }
 
     "Allow to reserve a product if sufficiently available" in {
-      pending
+      withStockManager { testActor =>
+        val product = Article("Super Computer", 10)
+
+        testActor ! CreateArticle(product)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! Reservation(product.id, 5, 10.minutes)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! ListArticles
+        checkArticles(1, List(product.copy(onStock = 5)))
+      }
     }
 
     "Deny to reserve a non-existing product" in {

@@ -45,7 +45,7 @@ object StockManager {
 
   // Asking for all products and the corresponding product list
   case object ListArticles
-  case class Stock(products: List[Article])
+  case class Stock(products: List[ArticleState])
 
   // A general result message indicating success (rc = 0) or an error
   // code along with an error message
@@ -149,6 +149,6 @@ class StockManager extends Actor with ActorLogging {
     // List the current stock
     case ListArticles =>
       log.debug(s"Return [${currentStock.size}] articles in stock.")
-      sender() ! Stock(currentStock.values.toList)
+      sender() ! Stock(currentStock.values.toList.map(a => ArticleState(a, List.empty)))
   }
 }
