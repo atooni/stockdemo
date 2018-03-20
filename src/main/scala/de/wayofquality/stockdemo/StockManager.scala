@@ -1,6 +1,7 @@
 package de.wayofquality.stockdemo
 
 import akka.actor.{Actor, ActorLogging, Props}
+import de.wayofquality.stockdemo.StockManager.CreateProduct
 
 // The companion object for the StockManager defines the protocol
 // messages for the various use cases
@@ -31,5 +32,9 @@ object StockManager {
   */
 class StockManager extends Actor with ActorLogging {
 
-  override def receive: Receive = Actor.emptyBehavior
+  import StockManager._
+
+  override def receive: Receive = {
+    case CreateProduct(_) => sender() ! StockManagerResult(0)
+  }
 }
