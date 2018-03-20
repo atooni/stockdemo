@@ -5,14 +5,63 @@ based service can be implemented that manages an imaginary stock of articles.
 
 The outline of the service was specified as follows:
 
+====
 ....
-[listing]
-include::src/test/scala/de/wayofquality/stockdemo/StockManagerSpec.scala[lines=9..20]
-....
+The task is to develop a stock management as a Rest-Microservice in Scala. A stock management maintains the current
+stock amount for a product. The stock can be increased (refill) or decreased (client buys a product). The stock
+should be maintained on a per-product basis. If you are quick you can also implement a "reserve product" mechanism,
+that blocks a product in the stock until the client actually buys it (similar to the seat reservation system for
+flight tickets). However this is optional.
+
+The project should be checked into a public code repository of your choice like Github, Bitbucket or Gitlab.
+It must contain tests and run out of the box, i.e. it should not require manual installation of other components.
+Use a build system of your choice (e.g. Maven, SBT, Gradle).
+====
 
 ==== Technical Details
 
-* The build system used for the example is SBT 1.1.1
-* The technical stack for the REST service is Akka HTTP for the REST interface and an Actor bases in memory backend for the Stock Manager
-* The specification above has been transformed into a specification based on ScalaTest, first for the backend and then the same test cases for the REST interface.
+* The build system used for the example is https://www.scala-sbt.org[SBT 1.1.1]
 
+* The technical stack for the REST service is https://akka.io/docs[Akka] HTTP for the REST interface
+  and an Actor bases in memory backend for the Stock Manager
+
+* The specification above has been transformed into a specification based on http://www.scalatest.org[ScalaTest],
+  first for the backend and then the same test cases for the REST interface.
+
+* Reservations can be made for available quantities of products for a given amount of time. After that time the
+  reservation can't be fulfilled any longer.
+
+* A fulfilled reservation is deducted from the stock without modification
+  of the quantity.
+
+==== Running and Building
+
+. A local installation of SBT is required to execute the project.
+
+. Simply checkout the project from https://github.com/atooni/stockdemo[github]
+
+. Switch to the checkout directory and
+
+.. run `sbt test` to execute the tests.
+
+.. run `sbt run` to execute the server mainline.
+
+[NOTE]
+====
+The server will start to listen on port 9999 by default. This port can be configured by changing
+the file `src/main/resources/application.conf` without modifying the code.
+====
+
+==== Limitations
+
+* Exerything runs in memory without any preservation of state across server restarts.
+
+* The documentation should be improved to document the complete REST interface with JSON document examples.
+  So far, the JSON is created implicitly in the test case for the REST service using the JSON marshalling
+  support.
+
+* The project is missing a UI, a standard UI for testing REST services can be used, for example https://www.getpostman.com/[Postman]
+
+
+Have fun
+Andreas
