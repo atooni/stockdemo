@@ -3,6 +3,7 @@ package de.wayofquality.stockdemo
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, FreeSpecLike}
+import scala.concurrent.duration._
 
 //The Task
 //************
@@ -24,15 +25,28 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
   import StockManager._
 
+  private[this] val log = org.log4s.getLogger
+
   "The StockManager should" - {
 
     "Allow to define a product along with an available Quantity" in {
 
-      val product = Product("Super Computer", 10)
+      val product = Article("Super Computer", 10)
       val testActor = system.actorOf(props())
 
-      testActor ! CreateProduct(product)
+      testActor ! CreateArticle(product)
       expectMsg(StockManagerResult(0, None))
+
+      testActor ! ListArticles
+
+      fishForMessage(1.second){
+        case Stock(l) =>
+          log.info(s"Articles: $l")
+          (l.length == 1 && l.head.name === "Super Computer")
+        case _ => false
+      }
+
+      system.stop(testActor)
     }
 
     "Allow to increase the available quantity of an existing product" in {

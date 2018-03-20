@@ -1,14 +1,17 @@
 package de.wayofquality.stockdemo
 
 import akka.actor.{Actor, ActorLogging, Props}
-import de.wayofquality.stockdemo.StockManager.CreateProduct
 
 // The companion object for the StockManager defines the protocol
 // messages for the various use cases
 object StockManager {
 
   // Adding a new product to the StockManager
-  case class CreateProduct(p: Product)
+  case class CreateArticle(p: Article)
+
+  // Asking for all products and the corresponding product list
+  case object ListArticles
+  case class Stock(products: List[Article])
 
   // A general result message indicating success (rc = 0) or an error
   // code along with an error message
@@ -34,7 +37,18 @@ class StockManager extends Actor with ActorLogging {
 
   import StockManager._
 
+  private[this] var currentStock : List[Article] = List.empty
+
   override def receive: Receive = {
-    case CreateProduct(_) => sender() ! StockManagerResult(0)
+    // Creating an article that does not yet exist in the stock
+    case CreateArticle(a) =>
+      log.debug(s"Adding article [$a] to current stock")
+      currentStock = a :: currentStock
+      sender() ! StockManagerResult(0)
+
+    // List the current stock
+    case ListArticles =>
+      log.debug(s"Return [${currentStock.length}] articles in stock.")
+      sender() ! Stock(currentStock)
   }
 }
