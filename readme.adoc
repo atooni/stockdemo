@@ -6,5 +6,13 @@ based service can be implemented that manages an imaginary stock of articles.
 The outline of the service was specified as follows:
 
 ....
+[source,scala]
 include::src/test/scala/de/wayofquality/stockdemo/StockManagerSpec.scala[lines=9..20]
 ....
+
+==== Technical Details
+
+* The build system used for the example is SBT 1.1.1
+* The technical stack for the REST service is Akka HTTP for the REST interface and an Actor bases in memory backend for the Stock Manager
+* The specification above has been transformed into a specification based on ScalaTest, first for the backend and then the same test cases for the REST interface.
+
