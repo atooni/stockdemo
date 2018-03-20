@@ -5,4 +5,6 @@ based service can be implemented that manages an imaginary stock of articles.
 
 The outline of the service was specified as follows:
 
+....
 include::src/test/scala/de/wayofquality/stockdemo/StockManagerSpec.scala[lines=9..20]
+....
