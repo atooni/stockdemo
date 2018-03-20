@@ -1,6 +1,6 @@
 package de.wayofquality.stockdemo
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 
@@ -19,7 +19,8 @@ object StockManagerMain {
 
     val port = system.settings.config.getInt("de.wayofquality.stockdemo.port")
 
-    val bindingFuture = Http().bindAndHandle(StockManagerService.route, "localhost", port)
+    val stockManager = system.actorOf(StockManager.props(), "StockManager")
+    val bindingFuture = Http().bindAndHandle(new StockManagerService(stockManager).route, "localhost", port)
 
     println(s"Server online at http://localhost:$port/\nPress RETURN to stop...")
     StdIn.readLine() // let it run until user presses return

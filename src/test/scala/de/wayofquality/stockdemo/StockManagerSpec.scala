@@ -59,8 +59,8 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
     "Allow to create a product along with an available Quantity" in {
 
       withStockManager{testActor =>
-        val a1 = Article("Super Computer", 10)
-        val a2 = Article("Another cool product", 200)
+        val a1 = Article(1, "Super Computer", 10)
+        val a2 = Article(2, "Another cool product", 200)
 
         testActor ! CreateArticle(a1)
         expectMsg(StockManagerResult(0, None))
@@ -76,7 +76,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
     "Deny to create a product with an id that already exists" in {
 
       withStockManager { testActor =>
-        val product = Article("Super Computer", 10)
+        val product = Article(1, "Super Computer", 10)
 
         testActor ! CreateArticle(product)
         expectMsg(StockManagerResult(0, None))
@@ -91,7 +91,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
     "Allow to increase the available quantity of an existing product" in {
       withStockManager { testActor =>
-        val product = Article("Super Computer", 10)
+        val product = Article(1, "Super Computer", 10)
 
         testActor ! CreateArticle(product)
         expectMsg(StockManagerResult(0))
@@ -106,7 +106,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
     "Deny to increase the available quantity of a non-existing product" in {
       withStockManager{ testActor =>
-         val product = Article("Super Computer", 10)
+         val product = Article(1, "Super Computer", 10)
 
         testActor ! Refill(product.id, 10)
         expectMsg(ARTICLE_NOT_FOUND)
@@ -115,7 +115,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
     "Allow to buy an existing product if sufficiently available" in {
       withStockManager { testActor =>
-        val product = Article("Super Computer", 10)
+        val product = Article(1, "Super Computer", 10)
 
         testActor ! CreateArticle(product)
         expectMsg(StockManagerResult(0))
@@ -132,7 +132,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
     "Deny to buy a non-existing product" in {
       withStockManager{ testActor =>
-        val product = Article("Super Computer", 10)
+        val product = Article(1, "Super Computer", 10)
 
         testActor ! Sell(product.id, 10)
         expectMsg(ARTICLE_NOT_FOUND)
@@ -141,7 +141,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
     "Deny to buy an existing product if not sufficiently available" in {
       withStockManager { testActor =>
-        val product = Article("Super Computer", 10)
+        val product = Article(1, "Super Computer", 10)
 
         testActor ! CreateArticle(product)
         expectMsg(StockManagerResult(0))
@@ -157,12 +157,12 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
     "Allow to reserve a product if sufficiently available" in {
       withStockManager { testActor =>
-        val product = Article("Super Computer", 10)
+        val product = Article(1, "Super Computer", 10)
 
         testActor ! CreateArticle(product)
         expectMsg(StockManagerResult(0))
 
-        testActor ! Reservation(product.id, 5, 10.minutes)
+        testActor ! Reservation(1, product.id, 5, 10.minutes.toMillis)
         expectMsg(StockManagerResult(0))
 
         testActor ! ListArticles
@@ -174,24 +174,24 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
     "Deny to reserve a non-existing product" in {
       withStockManager{ testActor =>
-        val product = Article("Super Computer", 10)
+        val product = Article(1, "Super Computer", 10)
 
-        testActor ! Reservation(product.id, 10, 10.minutes)
+        testActor ! Reservation(1, product.id, 10, 10.minutes.toMillis)
         expectMsg(ARTICLE_NOT_FOUND)
       }
     }
 
     "Deny to reserve a product if not sufficiently available" in {
       withStockManager { testActor =>
-        val product = Article("Super Computer", 10)
+        val product = Article(1, "Super Computer", 10)
 
         testActor ! CreateArticle(product)
         expectMsg(StockManagerResult(0))
 
-        testActor ! Reservation(product.id, 5, 10.minutes)
+        testActor ! Reservation(1, product.id, 5, 10.minutes.toMillis)
         expectMsg(StockManagerResult(0))
 
-        testActor ! Reservation(product.id, 10, 10.minutes)
+        testActor ! Reservation(2, product.id, 10, 10.minutes.toMillis)
         expectMsg(ARTICLE_UNSUFFICIENT_STOCK.copy(article = Some(product)))
 
         testActor ! ListArticles
@@ -202,8 +202,8 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
     "Allow to cancel a reservation and make the quantity reserved available again" in {
       withStockManager { testActor =>
-        val product = Article("Super Computer", 10)
-        val reservation = Reservation(product.id, 5, 10.minutes)
+        val product = Article(1, "Super Computer", 10)
+        val reservation = Reservation(1, product.id, 5, 10.minutes.toMillis)
 
         testActor ! CreateArticle(product)
         expectMsg(StockManagerResult(0))
@@ -223,9 +223,9 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
     "Take into account the current reservations when checking the current stock" in {
       withStockManager { testActor =>
         // Initially we have 10
-        val product = Article("Super Computer", 10)
-        val res1 = Reservation(product.id, 3, 10.minutes)
-        val res2 = Reservation(product.id, 4, 10.minutes)
+        val product = Article(1, "Super Computer", 10)
+        val res1 = Reservation(1, product.id, 3, 10.minutes.toMillis)
+        val res2 = Reservation(2, product.id, 4, 10.minutes.toMillis)
 
         testActor ! CreateArticle(product)
         expectMsg(StockManagerResult(0))

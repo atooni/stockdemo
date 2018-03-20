@@ -18,10 +18,12 @@ object Dependencies {
     akkaOrg %% "akka-actor" % akkaVersion,
     akkaOrg %% "akka-slf4j" % akkaVersion,
     akkaOrg %% "akka-http" % akkaHttpVersion,
-
+    akkaOrg %% "akka-stream" % akkaVersion,
+    akkaOrg %% "akka-http-spray-json" % akkaHttpVersion,
 
     // Test dependencies
     akkaOrg %% "akka-testkit" % akkaVersion % "test",
+    akkaOrg %% "akka-http-testkit" % akkaHttpVersion % "test",
     "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   )
 }

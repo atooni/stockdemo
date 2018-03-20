@@ -1,14 +1,33 @@
 package de.wayofquality.stockdemo
 
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity}
+import akka.actor.ActorRef
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import akka.util.Timeout
 
-object StockManagerService {
+import scala.concurrent.duration._
+import akka.pattern.ask
+import de.wayofquality.stockdemo.StockManager.{CreateArticle, Stock}
 
-  val route : Route = path("hello"){
+class StockManagerService(stockManager: ActorRef) extends StockManagerJsonSupport {
+
+  import StockManager.ListArticles
+
+  implicit val askTimeout = Timeout(1.second)
+
+  val route : Route = path("articles") {
     get {
-      complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Say hello to akka-http</h1>"))
+      onSuccess(stockManager ? ListArticles) {
+        case stock : Stock => complete(stock)
+      }
+    } ~
+    post {
+      entity(as[Article]) { article =>
+        onSuccess(stockManager ? CreateArticle(article)) {
+          case result : StockManager.StockManagerResult => complete(result)
+        }
+      }
     }
   }
+
 }
