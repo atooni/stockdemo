@@ -242,6 +242,27 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
       }
     }
 
+    "Ensure that a reservation is deleted after it has timed out" in {
+      withStockManager { testActor =>
+        val product = Article(1, "Super Computer", 10)
+        val reservation = Reservation(1, product.id, 5, 100.millis.toMillis)
+
+        testActor ! CreateArticle(product)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! reservation
+        expectMsg(StockManagerResult(0))
+
+        // ONLY DO THIS IN TEST CODE IF EVER
+        Thread.sleep(500)
+
+        testActor ! ListArticles
+        val stock = checkArticles(1, List(product.copy(onStock = 10)))
+        assert(stock.head.reservations.isEmpty)
+        assert(stock.head.available == 10)
+      }
+    }
+
     "Take into account the current reservations when checking the current stock" in {
       withStockManager { testActor =>
         // Initially we have 10

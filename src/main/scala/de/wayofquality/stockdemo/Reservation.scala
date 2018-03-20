@@ -17,3 +17,6 @@ case class CancelReservation(id: Long)
 
 // Signalling the fulfillment of a reservation
 case class FulfillReservation(id: Long)
+
+// Signalling that a reservation has timed out
+case class TimeoutReservation(id: Long)

@@ -1,8 +1,8 @@
 package de.wayofquality.stockdemo
 
 import akka.actor.{Actor, ActorLogging, Props}
-
 import scala.util.{Failure, Success, Try}
+import scala.concurrent.duration._
 
 // The companion object for the StockManager defines the protocol
 // messages for the various use cases
@@ -61,6 +61,8 @@ class StockManager extends Actor with ActorLogging {
 
   import StockManager._
 
+  private[this] implicit val eCtxt = context.system.dispatcher
+
   // Maintain the current stock as a Map. The Map is immutable for now, so this
   // should be optimised implementing a real world use case. But then of course
   // it wouldn't reside in memory
@@ -93,9 +95,17 @@ class StockManager extends Actor with ActorLogging {
 
   // convenience method to save a reservation
   private[this] def saveReservation(reservation: Reservation) : Unit = {
-    val articleReservations : List[Reservation] =
-      reservation :: currentReservations.getOrElse(reservation.articleId, List.empty)
+    // When saving the reservation we will turn the duration into an absoulute time
 
+    val articleReservations : List[Reservation] =
+      reservation.copy(
+        reservedFor = System.currentTimeMillis() + reservation.reservedFor
+      ) :: currentReservations.getOrElse(reservation.articleId, List.empty)
+
+    // Now we schedule a Timeout Message
+    context.system.scheduler.scheduleOnce(reservation.reservedFor.millis, self, TimeoutReservation(reservation.id))
+
+    // And update the reservation store
     currentReservations =
       currentReservations.filterKeys(_ != reservation.articleId) + (reservation.articleId -> articleReservations)
   }
@@ -192,6 +202,14 @@ class StockManager extends Actor with ActorLogging {
         case None =>
           log.debug(s"Reservation [$id] not found.")
           sender() ! RESERVATION_NOT_FOUND
+      }
+
+    case TimeoutReservation(id) =>
+      reservationById(id) match {
+        case Some(r) =>
+          log.debug(s"Reservation [$id] timed out.")
+          removeReservation(r)
+        case None => // do nothing
       }
 
     // List the current stock
