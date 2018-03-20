@@ -2,7 +2,8 @@ package de.wayofquality.stockdemo
 
 import akka.actor.{Actor, ActorLogging, Props}
 
-import scala.util.Try
+import scala.concurrent.duration.FiniteDuration
+import scala.util.{Failure, Success, Try}
 
 // The companion object for the StockManager defines the protocol
 // messages for the various use cases
@@ -24,7 +25,22 @@ object StockManager {
     // The id of the target product
     id: Long,
     // The amount sold
-    soldAmount: Long
+    soldQuantity: Long
+  )
+
+  // Reserving a product with a given Quantity and a certain period
+  case class Reservation(
+    // The id of the product te be reserved
+    id : Long,
+    // The amount to be reserved
+    reservedQuantity: Long,
+    // The duration for the reservation
+    reservedFor: FiniteDuration
+  )
+
+  // Signalling the timeout of a Reservation
+  case class CancelReservation(
+    reservation: Reservation
   )
 
   // Asking for all products and the corresponding product list
@@ -60,14 +76,32 @@ class StockManager extends Actor with ActorLogging {
 
   import StockManager._
 
+  // Maintain the current stock as a Map. The Map is immutable for now, so this
+  // should be optimised implementing a real world use case. But then of course
+  // it wouldn't reside in memory
   private[this] var currentStock : Map[Long, Article] = Map.empty
 
-  private def saveArticle(a: Article): Unit = currentStock = currentStock.filterKeys(_ != a.id) + (a.id -> a)
+  // convenience method to retrieve an article with it's id. When the implementation
+  // of the stock store changes, we just need to change this method
+  private[this] def article(id: Long) : Option[Article] = currentStock.get(id)
+
+  // convenience method to calculate the freely available quantity of a given
+  // product taken the stock and reservations into account
+  private[this] def available(id: Long) : Try[(Article, Long)] = Try {
+    article(id) match {
+      case Some(a) =>
+        (a, a.onStock)
+      case None =>
+        throw new Exception("Article does not exist")
+    }
+  }
+
+  private[this] def saveArticle(a: Article): Unit = currentStock = currentStock.filterKeys(_ != a.id) + (a.id -> a)
 
   override def receive: Receive = {
     // Creating an article that does not yet exist in the stock
     case CreateArticle(a) =>
-      currentStock.get(a.id) match {
+      article(a.id) match {
         case Some(_) =>
           log.debug(s"Article with id [${a.id}] already exists.")
           sender() ! ARTICLE_ALREADY_EXISTS.copy(article = Some(a))
@@ -78,7 +112,7 @@ class StockManager extends Actor with ActorLogging {
       }
 
     case Refill(id, quantity) =>
-      currentStock.get(id) match {
+      article(id) match {
         case Some(a) =>
           log.debug(s"Adding [$quantity] of {$a} to current stock.")
           saveArticle(a.copy(onStock = a.onStock + quantity))
@@ -88,10 +122,10 @@ class StockManager extends Actor with ActorLogging {
           sender() ! ARTICLE_DOES_NOT_EXIST
       }
 
-    case Sell(id, quantity) => {
-      currentStock.get(id) match {
-        case Some(a) =>
-          if (a.onStock < quantity) {
+    case Sell(id, quantity) =>
+      available(id) match {
+        case Success((a,q)) =>
+          if (q < quantity) {
             log.debug(s"Insufficient stock for [$a], requested: [$quantity]")
             sender() ! ARTICLE_UNSUFFICIENT_STOCK.copy(article = Some(a))
           } else {
@@ -99,11 +133,18 @@ class StockManager extends Actor with ActorLogging {
             saveArticle(a.copy(onStock = a.onStock - quantity))
             sender() ! StockManagerResult(0)
           }
+        case Failure(_) =>
+          log.debug(s"Article with id [$id] not found")
+          sender() ! ARTICLE_DOES_NOT_EXIST
+      }
+
+    case Reservation(id, quantity, reservedFor) =>
+      article(id) match {
+        case Some(a) =>
         case None =>
           log.debug("Article with id [$id] not found")
           sender() ! ARTICLE_DOES_NOT_EXIST
       }
-    }
 
     // List the current stock
     case ListArticles =>

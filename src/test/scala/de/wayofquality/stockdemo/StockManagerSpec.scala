@@ -164,11 +164,28 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
       pending
     }
 
-    "Deny to reserve a product if not sufficiently available" in {
+    "Deny to reserve a non-existing product" in {
       pending
     }
 
+    "Deny to reserve a product if not sufficiently available" in {
+      withStockManager{ testActor =>
+        val product = Article("Super Computer", 10)
+
+        testActor ! Reservation(product.id, 10, 10.minutes)
+        expectMsg(ARTICLE_DOES_NOT_EXIST)
+      }
+    }
+
     "Allow to cancel a reservation and make the quantity reserved available again" in {
+      pending
+    }
+
+    "Allow to cancel a given reservation" in {
+      pending
+    }
+
+    "Take into account the current reservations when checking the current stock" in {
       pending
     }
   }
