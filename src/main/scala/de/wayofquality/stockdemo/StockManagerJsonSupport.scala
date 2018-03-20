@@ -11,6 +11,7 @@ final case class Quantity(
 trait StockManagerJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val quantityFormat = jsonFormat1(Quantity)
   implicit val cancelFormat = jsonFormat1(CancelReservation)
+  implicit val fulfillFormat = jsonFormat1(FulfillReservation)
   implicit val reservationFormat = jsonFormat4(Reservation)
   implicit val articleFormat = jsonFormat3(Article)
   implicit val articleStateFormat = jsonFormat2(ArticleState)

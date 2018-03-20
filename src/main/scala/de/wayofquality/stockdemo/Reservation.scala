@@ -12,5 +12,8 @@ final case class Reservation (
   reservedFor: Long
 )
 
-// Signalling the timeout of a Reservation
+// Signalling the cancellation of a Reservation
 case class CancelReservation(id: Long)
+
+// Signalling the fulfillment of a reservation
+case class FulfillReservation(id: Long)

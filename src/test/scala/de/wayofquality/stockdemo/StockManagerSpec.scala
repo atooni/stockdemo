@@ -45,7 +45,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
     val stock = expectMsgType[Stock]
     val l = stock.products.map(_.article)
 
-    log.info(s"Product State [$stock] [$l]")
+    log.info(s"Product State [$stock], Checking for products [$l]")
     assert(
       l.length == articleCount &&
       contained.forall { a => l.contains(a) }
@@ -200,6 +200,27 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
       }
     }
 
+    "Allow to fulfill a given reservation" in {
+      withStockManager { testActor =>
+        val product = Article(1, "Super Computer", 10)
+        val reservation = Reservation(1, product.id, 5, 10.minutes.toMillis)
+
+        testActor ! CreateArticle(product)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! reservation
+        expectMsg(StockManagerResult(0))
+
+        testActor ! FulfillReservation(reservation.id)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! ListArticles
+        val stock = checkArticles(1, List(product.copy(onStock = 5)))
+        assert(stock.head.available == 5)
+        assert(stock.head.reservations.isEmpty)
+      }
+    }
+
     "Allow to cancel a reservation and make the quantity reserved available again" in {
       withStockManager { testActor =>
         val product = Article(1, "Super Computer", 10)
@@ -216,6 +237,7 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
 
         testActor ! ListArticles
         val stock = checkArticles(1, List(product.copy(onStock = 10)))
+        assert(stock.head.reservations.isEmpty)
         assert(stock.head.available == 10)
       }
     }

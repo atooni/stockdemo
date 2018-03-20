@@ -177,6 +177,23 @@ class StockManager extends Actor with ActorLogging {
           sender() ! RESERVATION_NOT_FOUND
       }
 
+    case FulfillReservation(id) =>
+      reservationById(id) match {
+        case Some(r) =>
+          log.debug(s"Fulfilling reservation [$r]")
+          removeReservation(r)
+          article(r.articleId) match {
+            case Some(a) =>
+              saveArticle(a.copy(onStock = a.onStock - r.reservedQuantity))
+              sender() ! StockManagerResult(0)
+            case None =>
+              sender() ! ARTICLE_NOT_FOUND
+          }
+        case None =>
+          log.debug(s"Reservation [$id] not found.")
+          sender() ! RESERVATION_NOT_FOUND
+      }
+
     // List the current stock
     case ListArticles =>
       log.debug(s"Return [${currentStock.size}] articles in stock.")

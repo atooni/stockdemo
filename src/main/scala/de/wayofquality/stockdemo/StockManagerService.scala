@@ -79,6 +79,9 @@ class StockManagerService(stockManager: ActorRef) extends StockManagerJsonSuppor
   private val reservationsRoute : Route = pathPrefix("reservations" / LongNumber) { resId =>
     method(HttpMethods.DELETE) {
       executeStockManager(CancelReservation(resId))
+    } ~
+    path("fulfill") {
+      executeStockManager(FulfillReservation(resId))
     }
   }
 

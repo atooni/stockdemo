@@ -192,7 +192,33 @@ class RestServiceSpec extends FreeSpec
 
         checkArticles(1, List(product), getProducts(route).get)
       }
+    }
 
+    "Allow to fulfill a reservation" in {
+      withRestService { route =>
+        Post("/articles", product) ~> route ~> check {
+          assert(responseAs[StockManagerResult] === StockManagerResult(0))
+        }
+
+        Post(s"/articles/${product.id}/reserve", Reservation(1, product.id, 90, 10.minutes.toMillis)) ~> route ~> check {
+          assert(responseAs[StockManager.StockManagerResult] === StockManagerResult(0))
+        }
+
+        Post(s"/articles/${product.id}/reserve", Reservation(2, product.id, 10, 10.minutes.toMillis)) ~> route ~> check {
+          assert(responseAs[StockManager.StockManagerResult] === StockManagerResult(0))
+        }
+
+        val states = checkArticles(1, List(product), getProducts(route).get)
+        assert(states.head.available == 0)
+
+        Post(s"/reservations/${product.id}/fulfill") ~> route ~> check {
+          assert(responseAs[StockManager.StockManagerResult] === StockManagerResult(0))
+        }
+
+        val states2 = checkArticles(1, List(product.copy(onStock = 10)), getProducts(route).get)
+        assert(states2.head.available == 0)
+        assert(states2.length == 1)
+      }
     }
 
     "Allow to cancel a reservation and make the quantity reserved available again" in {
