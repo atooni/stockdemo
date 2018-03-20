@@ -251,7 +251,6 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
         expectMsg(StockManagerResult(0))
 
         // Now we should have 1 freely available and 5 on stock
-
         testActor ! ListArticles
         val stock = checkArticles(1, List(product.copy(onStock = 5)))
         assert(stock.head.available == 1)
