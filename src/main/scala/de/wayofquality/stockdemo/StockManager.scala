@@ -9,6 +9,14 @@ object StockManager {
   // Adding a new product to the StockManager
   case class CreateArticle(p: Article)
 
+  // Refilling a product with a given Quantity
+  case class Refill(
+    // The id of the target product
+    id: Long,
+    // The amount to be added to the stock
+    addedAmount: Long
+  )
+
   // Asking for all products and the corresponding product list
   case object ListArticles
   case class Stock(products: List[Article])
@@ -21,6 +29,7 @@ object StockManager {
   )
 
   val ARTICLE_ALREADY_EXISTS = StockManagerResult(1, Option("Product already exists"))
+  val ARTICLE_DOES_NOT_EXIST = StockManagerResult(2, Option("Article does not exist"))
 
   // Return the props object to create the main Actor
   def props() : Props = Props(new StockManager)
@@ -54,6 +63,16 @@ class StockManager extends Actor with ActorLogging {
           sender() ! StockManagerResult(0)
       }
 
+    case Refill(id, quantity) =>
+      currentStock.get(id) match {
+        case Some(a) =>
+          log.debug(s"Adding [$quantity] of {$a} to current stock.")
+          currentStock = currentStock.filterKeys(_ != id) + (id -> a.copy(onStock = a.onStock + quantity))
+          sender() ! StockManagerResult(0)
+        case None =>
+          log.debug("Article with id [$id] not found")
+          sender() ! ARTICLE_DOES_NOT_EXIST
+      }
 
     // List the current stock
     case ListArticles =>

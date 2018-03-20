@@ -79,11 +79,33 @@ class StockManagerSpec extends TestKit(ActorSystem("stock"))
     }
 
     "Allow to increase the available quantity of an existing product" in {
-      pending
+      withStockManager { testActor =>
+        val product = Article("Super Computer", 10)
+
+        testActor ! CreateArticle(product)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! Refill(product.id, 10)
+        expectMsg(StockManagerResult(0))
+
+        testActor ! ListArticles
+
+        fishForMessage(1.second){
+          case Stock(l) =>
+            log.info(s"Articles: $l")
+            l.length == 1 && l.head.name === "Super Computer" && l.head.id == product.id && l.head.onStock === 20
+          case _ => false
+        }
+      }
     }
 
     "Deny to increase the available quantity of a non-existing product" in {
-      pending
+      withStockManager{ testActor =>
+         val product = Article("Super Computer", 10)
+
+        testActor ! Refill(product.id, 10)
+        expectMsg(ARTICLE_DOES_NOT_EXIST)
+      }
     }
 
     "Allow to buy an existing product if sufficiently available" in {
