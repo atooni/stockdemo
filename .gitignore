@@ -1,0 +1,23 @@
+*.log
+*.backup
+*.swp
+
+# Macosx
+.DS_Store
+
+# IntelliJ files
+.idea
+*.iml
+
+target/
+
+# Eclipse settings and caches
+.project
+.classpath
+.settings/
+.cache
+.cache-main
+.cache-tests
+target-eclipse/
+eclipse-target/
+
